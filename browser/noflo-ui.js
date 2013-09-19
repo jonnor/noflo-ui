@@ -12848,7 +12848,7 @@ NoFloPlugin = (function() {
     this.prepareGraph(graph, dfGraph, runtime, callback);
     return runtime.iframe.onload = function() {
       var edge, iip, node, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2;
-      runtime.sendGraph('graph', {
+      runtime.sendGraph('clear', {
         baseDir: graph.baseDir
       });
       _ref = graph.nodes;
@@ -12885,7 +12885,7 @@ NoFloPlugin = (function() {
     nofloGraph.dataflowGraph = dataflowGraph;
     nofloGraph.runtime = runtime;
     runtime.loadComponents(nofloGraph.baseDir);
-    runtime.sendGraph('graph', {
+    runtime.sendGraph('clear', {
       baseDir: nofloGraph.baseDir
     });
     this.subscribeDataflowEvents(dataflowGraph);
