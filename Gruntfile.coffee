@@ -19,19 +19,14 @@ module.exports = ->
       install:
         options:
           action: 'install'
-    
-    component_build:
-      'noflo-ui':
-        output: './browser/'
-        config: './component.json'
-        copy: true
-        scripts: true
-        styles: false
-        plugins: ['coffee']
-        configure: (builder) ->
-          # Enable Component plugins
-          json = require 'component-json'
-          builder.use json()
+      build:
+        options:
+          action: 'build'
+          args:
+            out: './browser/'
+            name: 'noflo-ui'
+            copy: true
+            use: ['component-coffee']
 
     # Fix broken Component aliases, as mentioned in
     # https://github.com/anthonyshort/component-coffee/issues/3
@@ -135,7 +130,7 @@ module.exports = ->
   @loadNpmTasks 'grunt-coffeelint'
 
   # Our local tasks
-  @registerTask 'build', ['component', 'component_build', 'combine', 'uglify']
+  @registerTask 'build', ['component:install', 'component:build', 'combine', 'uglify']
   @registerTask 'test', ['coffeelint', 'build', 'coffee', 'mocha_phantomjs']
   @registerTask 'app', ['build', 'compress', 'phonegap-build']
   @registerTask 'default', ['test']

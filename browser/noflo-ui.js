@@ -26,14 +26,10 @@ function require(path, parent, orig) {
   // perform real require()
   // by invoking the module's
   // registered function
-  if (!module._resolving && !module.exports) {
-    var mod = {};
-    mod.exports = {};
-    mod.client = mod.component = true;
-    module._resolving = true;
-    module.call(this, mod.exports, require.relative(resolved), mod);
-    delete module._resolving;
-    module.exports = mod.exports;
+  if (!module.exports) {
+    module.exports = {};
+    module.client = module.component = true;
+    module.call(this, module.exports, require.relative(resolved), module);
   }
 
   return module.exports;
@@ -8613,9 +8609,6 @@ exports.getComponent = function() {
 };
 
 });
-require.register("noflo-noflo/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo","description":"Flow-Based Programming environment for JavaScript","keywords":["fbp","workflow","flow"],"repo":"noflo/noflo","version":"0.4.0","dependencies":{"component/emitter":"*","component/underscore":"*","noflo/fbp":"*"},"development":{},"license":"MIT","main":"src/lib/NoFlo.js","scripts":["src/lib/Graph.js","src/lib/InternalSocket.js","src/lib/Port.js","src/lib/ArrayPort.js","src/lib/Component.js","src/lib/AsyncComponent.js","src/lib/LoggingComponent.js","src/lib/ComponentLoader.js","src/lib/NoFlo.js","src/lib/Network.js","src/components/Graph.js"],"json":["component.json"],"noflo":{"components":{"Graph":"src/components/Graph.js"}}}');
-});
 require.register("noflo-noflo-runtime-iframe/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features of noflo-runtime-iframe.
@@ -8624,9 +8617,6 @@ require.register("noflo-noflo-runtime-iframe/index.js", function(exports, requir
  * components in this project utilize.
  */
 
-});
-require.register("noflo-noflo-runtime-iframe/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-runtime-iframe","description":"NoFlo runtime for execution inside an iframe","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-runtime-iframe","version":"0.1.0","keywords":[],"dependencies":{"noflo/noflo":"*","noflo/noflo-core":"*"},"scripts":["index.js"],"json":["component.json"],"files":["runtime/component.js","html/component.html","runtime/network.js","html/network.html"]}');
 });
 require.register("noflo-noflo-core/index.js", function(exports, require, module){
 /*
@@ -9259,9 +9249,6 @@ exports.getComponent = function() {
 };
 
 });
-require.register("noflo-noflo-core/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-core","description":"NoFlo Essentials","repo":"noflo/noflo-core","version":"0.1.0","author":{"name":"Henri Bergius","email":"henri.bergius@iki.fi"},"contributors":[{"name":"Kenneth Kan","email":"kenhkan@gmail.com"},{"name":"Ryan Shaw","email":"ryanshaw@unc.edu"}],"keywords":[],"dependencies":{"noflo/noflo":"*","component/underscore":"*"},"scripts":["components/Callback.js","components/DisconnectAfterPacket.js","components/Drop.js","components/Group.js","components/Kick.js","components/Merge.js","components/Output.js","components/Repeat.js","components/RepeatAsync.js","components/Split.js","components/RunInterval.js","index.js"],"json":["component.json"],"noflo":{"components":{"Callback":"components/Callback.js","DisconnectAfterPacket":"components/DisconnectAfterPacket.js","Drop":"components/Drop.js","Group":"components/Group.js","Kick":"components/Kick.js","Merge":"components/Merge.js","Output":"components/Output.js","Repeat":"components/Repeat.js","RepeatAsync":"components/RepeatAsync.js","Split":"components/Split.js","RunInterval":"components/RunInterval.js"}}}');
-});
 require.register("noflo-noflo-flow/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features of flow.
@@ -9340,9 +9327,6 @@ exports.getComponent = function() {
   return new Gate;
 };
 
-});
-require.register("noflo-noflo-flow/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-flow","description":"Flow Control for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-dom","version":"0.2.0","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/Gate.js","index.js"],"json":["component.json"],"noflo":{"components":{"Gate":"components/Gate.js"}}}');
 });
 require.register("noflo-noflo-objects/index.js", function(exports, require, module){
 /*
@@ -11145,9 +11129,6 @@ exports.getComponent = function() {
 };
 
 });
-require.register("noflo-noflo-objects/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-objects","description":"Object Utilities for NoFlo","version":"0.1.0","keywords":["noflo","objects","utilities"],"author":"Kenneth Kan <kenhkan@gmail.com>","repo":"noflo/objects","dependencies":{"noflo/noflo":"*","component/underscore":"*"},"scripts":["components/Extend.js","components/MergeObjects.js","components/SplitObject.js","components/ReplaceKey.js","components/Keys.js","components/Values.js","components/Join.js","components/ExtractProperty.js","components/InsertProperty.js","components/SliceArray.js","components/SplitArray.js","components/FilterPropertyValue.js","components/FlattenObject.js","components/MapProperty.js","components/RemoveProperty.js","components/MapPropertyValue.js","components/GetObjectKey.js","components/UniqueArray.js","components/SetProperty.js","components/SimplifyObject.js","components/DuplicateProperty.js","components/CreateObject.js","components/CreateDate.js","components/SetPropertyValue.js","components/CallMethod.js","index.js"],"json":["component.json"],"noflo":{"components":{"Extend":"components/Extend.js","MergeObjects":"components/MergeObjects.js","SplitObject":"components/SplitObject.js","ReplaceKey":"components/ReplaceKey.js","Keys":"components/Keys.js","Values":"components/Values.js","Join":"components/Join.js","ExtractProperty":"components/ExtractProperty.js","InsertProperty":"components/InsertProperty.js","SliceArray":"components/SliceArray.js","SplitArray":"components/SplitArray.js","FilterPropertyValue":"components/FilterPropertyValue.js","FlattenObject":"components/FlattenObject.js","MapProperty":"components/MapProperty.js","RemoveProperty":"components/RemoveProperty.js","MapPropertyValue":"components/MapPropertyValue.js","GetObjectKey":"components/GetObjectKey.js","UniqueArray":"components/UniqueArray.js","SetProperty":"components/SetProperty.js","SimplifyObject":"components/SimplifyObject.js","DuplicateProperty":"components/DuplicateProperty.js","CreateObject":"components/CreateObject.js","CreateDate":"components/CreateDate.js","SetPropertyValue":"components/SetPropertyValue.js","CallMethod":"components/CallMethod.js"}}}');
-});
 require.register("noflo-noflo-strings/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features that are exposed as CommonJS modules
@@ -11410,9 +11391,6 @@ exports.getComponent = function() {
   return new Jsonify;
 };
 
-});
-require.register("noflo-noflo-strings/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-strings","description":"String Utilities for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-strings","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*","component/underscore":"*"},"scripts":["components/Filter.js","components/SendString.js","components/StringTemplate.js","components/Replace.js","components/Jsonify.js","index.js"],"json":["component.json"],"noflo":{"components":{"Filter":"components/Filter.js","SendString":"components/SendString.js","StringTemplate":"components/StringTemplate.js","Replace":"components/Replace.js","Jsonify":"components/Jsonify.js"}}}');
 });
 require.register("noflo-noflo-dom/index.js", function(exports, require, module){
 /*
@@ -11854,9 +11832,6 @@ exports.getComponent = function() {
 };
 
 });
-require.register("noflo-noflo-dom/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-dom","description":"Document Object Model components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-dom","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/AddClass.js","components/AppendChild.js","components/CreateElement.js","components/CreateFragment.js","components/GetAttribute.js","components/GetElement.js","components/ReadHtml.js","components/WriteHtml.js","components/RemoveClass.js","index.js"],"json":["component.json"],"noflo":{"components":{"AddClass":"components/AddClass.js","AppendChild":"components/AppendChild.js","CreateElement":"components/CreateElement.js","CreateFragment":"components/CreateFragment.js","GetAttribute":"components/GetAttribute.js","GetElement":"components/GetElement.js","WriteHtml":"components/WriteHtml.js","ReadHtml":"components/ReadHtml.js","RemoveClass":"components/RemoveClass.js"}}}');
-});
 require.register("noflo-noflo-css/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features that are exposed as CommonJS modules
@@ -11966,9 +11941,6 @@ exports.getComponent = function() {
   return new RotateElement;
 };
 
-});
-require.register("noflo-noflo-css/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-css","description":"Cascading Style Sheets components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-css","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/MoveElement.js","components/RotateElement.js","index.js"],"json":["component.json"],"noflo":{"components":{"MoveElement":"components/MoveElement.js","RotateElement":"components/RotateElement.js"}}}');
 });
 require.register("noflo-noflo-interaction/index.js", function(exports, require, module){
 /*
@@ -12344,9 +12316,6 @@ exports.getComponent = function() {
 };
 
 });
-require.register("noflo-noflo-interaction/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-interaction","description":"User interaction components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-interaction","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/ListenDrag.js","components/ListenKeyboard.js","components/ListenMouse.js","components/ListenScroll.js","components/ListenTouch.js","index.js"],"json":["component.json"],"noflo":{"components":{"ListenDrag":"components/ListenDrag.js","ListenKeyboard":"components/ListenKeyboard.js","ListenMouse":"components/ListenMouse.js","ListenScroll":"components/ListenScroll.js","ListenTouch":"components/ListenTouch.js"}}}');
-});
 require.register("noflo-noflo-physics/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features of noflo-physics.
@@ -12445,9 +12414,6 @@ exports.getComponent = function() {
   return new Spring;
 };
 
-});
-require.register("noflo-noflo-physics/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-physics","description":"Physics components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-physics","version":"0.1.0","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/Spring.js","index.js"],"json":["component.json"],"noflo":{"components":{"Spring":"components/Spring.js"}}}');
 });
 require.register("noflo-noflo-math/index.js", function(exports, require, module){
 /*
@@ -12713,9 +12679,6 @@ exports.getComponent = function() {
 };
 
 });
-require.register("noflo-noflo-math/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-math","description":"Mathematical components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-math","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/Add.js","components/Subtract.js","components/Multiply.js","components/Divide.js","components/CountSum.js","index.js"],"json":["component.json"],"noflo":{"components":{"Add":"components/Add.js","Subtract":"components/Subtract.js","Multiply":"components/Multiply.js","Divide":"components/Divide.js","CountSum":"components/CountSum.js"}}}');
-});
 require.register("d4tocchini-noflo-draggabilly/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features that are exposed as CommonJS modules
@@ -12828,9 +12791,6 @@ exports.getComponent = function() {
   return new NoFloDraggabilly;
 };
 
-});
-require.register("d4tocchini-noflo-draggabilly/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-draggabilly","description":"Draggabilly components for the NoFlo flow-based programming environment","author":"D4 Tocchini <d4@rituwall.com>","repo":"d4tocchini/noflo-draggabilly","version":"0.0.1","keywords":["fbp","drag","dnd","draggable"],"dependencies":{"noflo/noflo":"*"},"scripts":["components/Draggabilly.js","index.js"],"json":["component.json"],"noflo":{"components":{"Draggabilly":"components/Draggabilly.js"}}}');
 });
 require.register("noflo-ui/src/noflo-ui.js", function(exports, require, module){
 var Dataflow, noflo, nofloPlugin, runtimes;
@@ -13532,28 +13492,11 @@ IframeRuntime = (function(_super) {
 module.exports = IframeRuntime;
 
 });
-require.register("noflo-ui/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-ui","description":"NoFlo Development Environment","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-ui","version":"0.1.0","keywords":["fbp","noflo","graph","visual","dataflow"],"dependencies":{"meemoo/dataflow":"*","noflo/noflo":"*","noflo/noflo-runtime-iframe":"*","noflo/noflo-core":"*","noflo/noflo-flow":"*","noflo/noflo-objects":"*","noflo/noflo-strings":"*","noflo/noflo-dom":"*","noflo/noflo-css":"*","noflo/noflo-interaction":"*","noflo/noflo-physics":"*","noflo/noflo-math":"*","d4tocchini/noflo-draggabilly":"*"},"main":"src/noflo-ui.js","scripts":["src/noflo-ui.js","src/plugins/noflo.js","src/plugins/preview-iframe.js","src/runtimes/base.js","src/runtimes/iframe.js"],"json":["component.json"]}');
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 require.alias("meemoo-dataflow/build/dataflow.build.js", "noflo-ui/deps/dataflow/build/dataflow.build.js");
 require.alias("meemoo-dataflow/build/dataflow.build.js", "noflo-ui/deps/dataflow/index.js");
 require.alias("meemoo-dataflow/build/dataflow.build.js", "dataflow/index.js");
 require.alias("meemoo-dataflow/build/dataflow.build.js", "meemoo-dataflow/index.js");
+
 require.alias("noflo-noflo/src/lib/Graph.js", "noflo-ui/deps/noflo/src/lib/Graph.js");
 require.alias("noflo-noflo/src/lib/InternalSocket.js", "noflo-ui/deps/noflo/src/lib/InternalSocket.js");
 require.alias("noflo-noflo/src/lib/Port.js", "noflo-ui/deps/noflo/src/lib/Port.js");
@@ -13575,7 +13518,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-runtime-iframe/index.js", "noflo-ui/deps/noflo-runtime-iframe/index.js");
 require.alias("noflo-noflo-runtime-iframe/index.js", "noflo-runtime-iframe/index.js");
 require.alias("noflo-noflo/src/lib/Graph.js", "noflo-noflo-runtime-iframe/deps/noflo/src/lib/Graph.js");
@@ -13598,7 +13543,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-core/components/Callback.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/Callback.js");
 require.alias("noflo-noflo-core/components/DisconnectAfterPacket.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/DisconnectAfterPacket.js");
 require.alias("noflo-noflo-core/components/Drop.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/Drop.js");
@@ -13631,7 +13578,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("component-underscore/index.js", "noflo-noflo-core/deps/underscore/index.js");
 
 require.alias("noflo-noflo-core/components/Callback.js", "noflo-ui/deps/noflo-core/components/Callback.js");
@@ -13667,7 +13616,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("component-underscore/index.js", "noflo-noflo-core/deps/underscore/index.js");
 
 require.alias("noflo-noflo-flow/components/Gate.js", "noflo-ui/deps/noflo-flow/components/Gate.js");
@@ -13693,7 +13644,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-objects/components/Extend.js", "noflo-ui/deps/noflo-objects/components/Extend.js");
 require.alias("noflo-noflo-objects/components/MergeObjects.js", "noflo-ui/deps/noflo-objects/components/MergeObjects.js");
 require.alias("noflo-noflo-objects/components/SplitObject.js", "noflo-ui/deps/noflo-objects/components/SplitObject.js");
@@ -13741,7 +13694,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("component-underscore/index.js", "noflo-noflo-objects/deps/underscore/index.js");
 
 require.alias("noflo-noflo-strings/components/Filter.js", "noflo-ui/deps/noflo-strings/components/Filter.js");
@@ -13771,7 +13726,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("component-underscore/index.js", "noflo-noflo-strings/deps/underscore/index.js");
 
 require.alias("noflo-noflo-dom/components/AddClass.js", "noflo-ui/deps/noflo-dom/components/AddClass.js");
@@ -13805,7 +13762,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-css/components/MoveElement.js", "noflo-ui/deps/noflo-css/components/MoveElement.js");
 require.alias("noflo-noflo-css/components/RotateElement.js", "noflo-ui/deps/noflo-css/components/RotateElement.js");
 require.alias("noflo-noflo-css/index.js", "noflo-ui/deps/noflo-css/index.js");
@@ -13830,7 +13789,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-interaction/components/ListenDrag.js", "noflo-ui/deps/noflo-interaction/components/ListenDrag.js");
 require.alias("noflo-noflo-interaction/components/ListenKeyboard.js", "noflo-ui/deps/noflo-interaction/components/ListenKeyboard.js");
 require.alias("noflo-noflo-interaction/components/ListenMouse.js", "noflo-ui/deps/noflo-interaction/components/ListenMouse.js");
@@ -13858,7 +13819,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-physics/components/Spring.js", "noflo-ui/deps/noflo-physics/components/Spring.js");
 require.alias("noflo-noflo-physics/index.js", "noflo-ui/deps/noflo-physics/index.js");
 require.alias("noflo-noflo-physics/index.js", "noflo-physics/index.js");
@@ -13882,7 +13845,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-noflo-math/components/Add.js", "noflo-ui/deps/noflo-math/components/Add.js");
 require.alias("noflo-noflo-math/components/Subtract.js", "noflo-ui/deps/noflo-math/components/Subtract.js");
 require.alias("noflo-noflo-math/components/Multiply.js", "noflo-ui/deps/noflo-math/components/Multiply.js");
@@ -13910,7 +13875,9 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("d4tocchini-noflo-draggabilly/components/Draggabilly.js", "noflo-ui/deps/noflo-draggabilly/components/Draggabilly.js");
 require.alias("d4tocchini-noflo-draggabilly/index.js", "noflo-ui/deps/noflo-draggabilly/index.js");
 require.alias("d4tocchini-noflo-draggabilly/index.js", "noflo-draggabilly/index.js");
@@ -13934,5 +13901,8 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+
 require.alias("noflo-ui/src/noflo-ui.js", "noflo-ui/index.js");
+
