@@ -19,10 +19,12 @@ module.exports = ->
       install:
         options:
           action: 'install'
+    
     component_build:
       'noflo-ui':
         output: './browser/'
         config: './component.json'
+        copy: true
         scripts: true
         styles: false
         plugins: ['coffee']

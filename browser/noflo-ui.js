@@ -26,10 +26,14 @@ function require(path, parent, orig) {
   // perform real require()
   // by invoking the module's
   // registered function
-  if (!module.exports) {
-    module.exports = {};
-    module.client = module.component = true;
-    module.call(this, module.exports, require.relative(resolved), module);
+  if (!module._resolving && !module.exports) {
+    var mod = {};
+    mod.exports = {};
+    mod.client = mod.component = true;
+    module._resolving = true;
+    module.call(this, mod.exports, require.relative(resolved), mod);
+    delete module._resolving;
+    module.exports = mod.exports;
   }
 
   return module.exports;
@@ -196,7 +200,7 @@ require.relative = function(parent) {
   return localRequire;
 };
 require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, require, module){
-/*! dataflow.js - v0.0.7 - 2013-09-18 (11:21:47 AM GMT+0200)
+/*! dataflow.js - v0.0.7 - 2013-09-18 (5:09:47 PM GMT+0200)
 * Copyright (c) 2013 Forrest Oliphant; Licensed MIT, GPL */
 (function(Backbone) {
   var ensure = function (obj, key, type) {
@@ -1248,16 +1252,30 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
 
   var Edge = Dataflow.prototype.module("edge");
 
+  var EdgeEvent = Backbone.Model.extend({
+    defaults: {
+      "type": "data",
+      "data": "",
+      "group": ""
+    }
+  });
+
+  var EdgeEventLog = Backbone.Collection.extend({
+    model: EdgeEvent
+  });
+
   Edge.Model = Backbone.Model.extend({
     defaults: {
       "z": 0,
       "route": 0,
-      "selected": false
+      "selected": false,
+      "log": null
     },
     initialize: function() {
       var nodes, sourceNode, targetNode;
       var preview = this.get("preview");
       this.parentGraph = this.get("parentGraph");
+      this.attributes.log = new EdgeEventLog();
       if (preview) {
         // Preview edge
         nodes = this.get("parentGraph").nodes;
@@ -3232,17 +3250,22 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       '<h1>Edge</h1>'+
       '<h2 class="dataflow-edge-inspector-id"><%- id %></h2>'+
     '</div>'+
-    '<div class="dataflow-edge-inspector-route-choose"></div>';
+    '<div class="dataflow-edge-inspector-route-choose"></div>'+
+    '<ul class="dataflow-edge-inspector-events"></ul>';
+
+  var logTemplate = '<li class="<%- type %>"><%- group %><%- data %></li>';
   
   Edge.InspectView = Backbone.View.extend({
     tagName: "div",
     className: "dataflow-edge-inspector",
     positions: null,
     template: _.template(template),
+    showLogs: 20,
     initialize: function() {
       this.$el.html( this.template(this.model) );
 
       var $choose = this.$el.children(".dataflow-edge-inspector-route-choose");
+      this.$log = this.$el.children('.dataflow-edge-inspector-events');
 
       var changeRoute = function(event){
         var route = $(event.target).data("route");
@@ -3261,16 +3284,43 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
         $choose.append(button);
       }
 
+      reqFrame = window.requestAnimationFrame ? window.requestAnimationFrame : window.webkitRequestAnimationFrame;
+
       this.listenTo(this.model, "change:route", this.render);
       this.listenTo(this.model, "remove", this.remove);
+      this.listenTo(this.model.get('log'), 'add', function () { reqFrame(this.renderLog.bind(this)); });
+      this.renderLog();
     },
     render: function(){
       var route = this.model.get("route");
       var $choose = this.$el.children(".dataflow-edge-inspector-route-choose");
       $choose.children(".active").removeClass("active");
       $choose.children(".route"+route).addClass("active");
-
       return this;
+    },
+    renderLog: function () {
+      var frag = document.createDocumentFragment();
+      var logs = this.model.get('log');
+      var logsToShow;
+      if (logs.length > this.showLogs) {
+        logsToShow = logs.rest(logs.length - this.showLogs);
+      } else {
+        logsToShow = logs.toArray();
+      }
+      _.each(logsToShow, function (item) {
+        this.renderLogItem(item, frag);
+      }, this);
+      this.$log.html(frag);
+      this.$log[0].scrollTop = this.$log[0].scrollHeight;
+    },
+    renderLogItem: function (item, fragment) {
+      var html = $(_.template(logTemplate, item.toJSON()));
+      if (fragment && fragment.appendChild) {
+        fragment.appendChild(html[0]);
+      } else {
+        this.$log.append(html);
+        this.$log[0].scrollTop = this.$log[0].scrollHeight;
+      }
     }
   });
 
@@ -7459,6 +7509,8 @@ Component = (function(_super) {
     return false;
   };
 
+  Component.prototype.shutdown = function() {};
+
   return Component;
 
 })(EventEmitter);
@@ -8089,6 +8141,7 @@ Network = (function(_super) {
     if (!this.processes[node.id]) {
       return;
     }
+    this.processes[node.id].component.shutdown();
     return delete this.processes[node.id];
   };
 
@@ -9190,6 +9243,12 @@ RunInterval = (function(_super) {
       return _this.outPorts.out.disconnect();
     });
   }
+
+  RunInterval.prototype.shutdown = function() {
+    if (this.interval) {
+      return clearInterval(this.interval);
+    }
+  };
 
   return RunInterval;
 
@@ -13476,11 +13535,25 @@ module.exports = IframeRuntime;
 require.register("noflo-ui/component.json", function(exports, require, module){
 module.exports = JSON.parse('{"name":"noflo-ui","description":"NoFlo Development Environment","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-ui","version":"0.1.0","keywords":["fbp","noflo","graph","visual","dataflow"],"dependencies":{"meemoo/dataflow":"*","noflo/noflo":"*","noflo/noflo-runtime-iframe":"*","noflo/noflo-core":"*","noflo/noflo-flow":"*","noflo/noflo-objects":"*","noflo/noflo-strings":"*","noflo/noflo-dom":"*","noflo/noflo-css":"*","noflo/noflo-interaction":"*","noflo/noflo-physics":"*","noflo/noflo-math":"*","d4tocchini/noflo-draggabilly":"*"},"main":"src/noflo-ui.js","scripts":["src/noflo-ui.js","src/plugins/noflo.js","src/plugins/preview-iframe.js","src/runtimes/base.js","src/runtimes/iframe.js"],"json":["component.json"]}');
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 require.alias("meemoo-dataflow/build/dataflow.build.js", "noflo-ui/deps/dataflow/build/dataflow.build.js");
 require.alias("meemoo-dataflow/build/dataflow.build.js", "noflo-ui/deps/dataflow/index.js");
 require.alias("meemoo-dataflow/build/dataflow.build.js", "dataflow/index.js");
 require.alias("meemoo-dataflow/build/dataflow.build.js", "meemoo-dataflow/index.js");
-
 require.alias("noflo-noflo/src/lib/Graph.js", "noflo-ui/deps/noflo/src/lib/Graph.js");
 require.alias("noflo-noflo/src/lib/InternalSocket.js", "noflo-ui/deps/noflo/src/lib/InternalSocket.js");
 require.alias("noflo-noflo/src/lib/Port.js", "noflo-ui/deps/noflo/src/lib/Port.js");
@@ -13502,9 +13575,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-runtime-iframe/index.js", "noflo-ui/deps/noflo-runtime-iframe/index.js");
 require.alias("noflo-noflo-runtime-iframe/index.js", "noflo-runtime-iframe/index.js");
 require.alias("noflo-noflo/src/lib/Graph.js", "noflo-noflo-runtime-iframe/deps/noflo/src/lib/Graph.js");
@@ -13527,9 +13598,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-core/components/Callback.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/Callback.js");
 require.alias("noflo-noflo-core/components/DisconnectAfterPacket.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/DisconnectAfterPacket.js");
 require.alias("noflo-noflo-core/components/Drop.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/Drop.js");
@@ -13562,9 +13631,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("component-underscore/index.js", "noflo-noflo-core/deps/underscore/index.js");
 
 require.alias("noflo-noflo-core/components/Callback.js", "noflo-ui/deps/noflo-core/components/Callback.js");
@@ -13600,9 +13667,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("component-underscore/index.js", "noflo-noflo-core/deps/underscore/index.js");
 
 require.alias("noflo-noflo-flow/components/Gate.js", "noflo-ui/deps/noflo-flow/components/Gate.js");
@@ -13628,9 +13693,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-objects/components/Extend.js", "noflo-ui/deps/noflo-objects/components/Extend.js");
 require.alias("noflo-noflo-objects/components/MergeObjects.js", "noflo-ui/deps/noflo-objects/components/MergeObjects.js");
 require.alias("noflo-noflo-objects/components/SplitObject.js", "noflo-ui/deps/noflo-objects/components/SplitObject.js");
@@ -13678,9 +13741,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("component-underscore/index.js", "noflo-noflo-objects/deps/underscore/index.js");
 
 require.alias("noflo-noflo-strings/components/Filter.js", "noflo-ui/deps/noflo-strings/components/Filter.js");
@@ -13710,9 +13771,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("component-underscore/index.js", "noflo-noflo-strings/deps/underscore/index.js");
 
 require.alias("noflo-noflo-dom/components/AddClass.js", "noflo-ui/deps/noflo-dom/components/AddClass.js");
@@ -13746,9 +13805,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-css/components/MoveElement.js", "noflo-ui/deps/noflo-css/components/MoveElement.js");
 require.alias("noflo-noflo-css/components/RotateElement.js", "noflo-ui/deps/noflo-css/components/RotateElement.js");
 require.alias("noflo-noflo-css/index.js", "noflo-ui/deps/noflo-css/index.js");
@@ -13773,9 +13830,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-interaction/components/ListenDrag.js", "noflo-ui/deps/noflo-interaction/components/ListenDrag.js");
 require.alias("noflo-noflo-interaction/components/ListenKeyboard.js", "noflo-ui/deps/noflo-interaction/components/ListenKeyboard.js");
 require.alias("noflo-noflo-interaction/components/ListenMouse.js", "noflo-ui/deps/noflo-interaction/components/ListenMouse.js");
@@ -13803,9 +13858,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-physics/components/Spring.js", "noflo-ui/deps/noflo-physics/components/Spring.js");
 require.alias("noflo-noflo-physics/index.js", "noflo-ui/deps/noflo-physics/index.js");
 require.alias("noflo-noflo-physics/index.js", "noflo-physics/index.js");
@@ -13829,9 +13882,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-noflo-math/components/Add.js", "noflo-ui/deps/noflo-math/components/Add.js");
 require.alias("noflo-noflo-math/components/Subtract.js", "noflo-ui/deps/noflo-math/components/Subtract.js");
 require.alias("noflo-noflo-math/components/Multiply.js", "noflo-ui/deps/noflo-math/components/Multiply.js");
@@ -13859,9 +13910,7 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("d4tocchini-noflo-draggabilly/components/Draggabilly.js", "noflo-ui/deps/noflo-draggabilly/components/Draggabilly.js");
 require.alias("d4tocchini-noflo-draggabilly/index.js", "noflo-ui/deps/noflo-draggabilly/index.js");
 require.alias("d4tocchini-noflo-draggabilly/index.js", "noflo-draggabilly/index.js");
@@ -13885,8 +13934,5 @@ require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/inde
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
-
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
-
 require.alias("noflo-ui/src/noflo-ui.js", "noflo-ui/index.js");
-
