@@ -2,6 +2,7 @@
 /preview/node_modules
 /components/*/
 /preview/components/*/
+/preview/browser/noflo-noflo-runtime-iframe/html/
 /spec/*.js
 /spec/*.xml
 noflo.zip
