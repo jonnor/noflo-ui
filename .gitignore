@@ -1,6 +1,7 @@
 /node_modules/
-/browser/
+/preview/node_modules
 /components/*/
+/preview/components/*/
 /spec/*.js
 /spec/*.xml
 noflo.zip

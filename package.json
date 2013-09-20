@@ -26,14 +26,16 @@
     "grunt-mocha-phantomjs": "~0.2.2",
     "grunt-contrib-uglify": "~0.2.0",
     "grunt-contrib-watch": "~0.3.1",
-    "component-json": "~0.1.4",
-    "grunt-combine": "~0.8.3",
-    "grunt-component": "~0.1.6",
     "grunt-contrib-compress": "~0.5.2",
     "grunt-phonegap-build": "0.0.8",
-    "component-coffee": "~0.1.4"
+    "component-builder": "git://github.com/bergie/builder.js.git#patch-1",
+    "component-json": "~0.1.4",
+    "component-coffee": "~0.1.4",
+    "grunt-exec": "~0.4.2",
+    "component": "~0.17.6"
   },
   "scripts": {
+    "postinstall": "cd preview && npm install && cd ..",
     "test": "grunt test"
   },
   "keywords": []

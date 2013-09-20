@@ -15,29 +15,17 @@ module.exports = ->
         ext: '.js'
 
     # Browser version building
-    component:
-      install:
-        options:
-          action: 'install'
-      build:
-        options:
-          action: 'build'
-          args:
-            out: './browser/'
-            name: 'noflo-ui'
-            copy: true
-            use: ['component-coffee']
-
-    # Fix broken Component aliases, as mentioned in
-    # https://github.com/anthonyshort/component-coffee/issues/3
-    combine:
-      browser:
-        input: 'browser/noflo-ui.js'
-        output: 'browser/noflo-ui.js'
-        tokens: [
-          token: '.coffee'
-          string: '.js'
-        ]
+    exec:
+      main_install:
+        command: './node_modules/.bin/component install'
+      main_build:
+        command: './node_modules/.bin/component build -u component-json,component-coffee -o browser -n noflo-ui -c'
+      preview_install:
+        command: './node_modules/.bin/component install'
+        cwd: 'preview'
+      preview_build:
+        command: './node_modules/.bin/component build -u component-json,component-coffee -o browser -n noflo-ui-preview -c'
+        cwd: 'preview'
 
     # JavaScript minification for the browser
     uglify:
@@ -46,6 +34,9 @@ module.exports = ->
       noflo:
         files:
           './browser/noflo-ui.min.js': ['./browser/noflo-ui.js']
+      preview:
+        files:
+          './preview/browser/noflo-ui-preview.min.js': ['./preview/browser/noflo-ui-preview.js']
 
     compress:
       app:
@@ -64,10 +55,6 @@ module.exports = ->
           expand: true
           dest: '/'
         ,
-          src: ['browser/noflo-noflo-runtime-iframe/runtime/network.js']
-          expand: true
-          dest: '/'
-        ,
           src: ['browser/noflo-ui.js']
           expand: true
           dest: '/'
@@ -77,6 +64,18 @@ module.exports = ->
           dest: '/'
         ,
           src: ['config.xml']
+          expand: true
+          dest: '/'
+        ,
+          src: ['preview/browser/noflo-noflo-runtime-iframe/runtime/network.js']
+          expand: true
+          dest: '/'
+        ,
+          src: ['preview/browser/noflo-ui-preview.js']
+          expand: true
+          dest: '/'
+        ,
+          src: ['preview/iframe.html']
           expand: true
           dest: '/'
         ,
@@ -115,9 +114,7 @@ module.exports = ->
 
   # Grunt plugins used for building
   @loadNpmTasks 'grunt-contrib-coffee'
-  @loadNpmTasks 'grunt-component'
-  @loadNpmTasks 'grunt-component-build'
-  @loadNpmTasks 'grunt-combine'
+  @loadNpmTasks 'grunt-exec'
   @loadNpmTasks 'grunt-contrib-uglify'
 
   # Grunt plugins used for mobile app building
@@ -130,7 +127,7 @@ module.exports = ->
   @loadNpmTasks 'grunt-coffeelint'
 
   # Our local tasks
-  @registerTask 'build', ['component:install', 'component:build', 'combine', 'uglify']
+  @registerTask 'build', ['exec', 'uglify']
   @registerTask 'test', ['coffeelint', 'build', 'coffee', 'mocha_phantomjs']
   @registerTask 'app', ['build', 'compress', 'phonegap-build']
   @registerTask 'default', ['test']

@@ -87,13 +87,15 @@ class NoFloPlugin
     unless node.nofloNode
       # Ensure IDs are strings
       id = node.id + ''
-      node.nofloNode = graph.nofloGraph.addNode id, node.type,
-        x: node.get 'x'
-        y: node.get 'y'
+      node.nofloNode = graph.nofloGraph.getNode id
+      unless node.nofloNode
+        node.nofloNode = graph.nofloGraph.addNode id, node.type,
+          x: node.get 'x'
+          y: node.get 'y'
 
     node.on 'change:label', (node, newName) ->
       oldName = node.nofloNode.id
-      graph.nofloGraph.renameNode oldName, newName
+      graph.nofloGraph.renameNode oldName, newName + ''
     node.on 'change:x change:y', ->
       node.nofloNode.metadata.x = node.get 'x'
       node.nofloNode.metadata.y = node.get 'y'
@@ -114,10 +116,11 @@ class NoFloPlugin
           metadata = iip.metadata
           graph.nofloGraph.removeInitial node.nofloNode.id, port
       graph.nofloGraph.addInitial true, node.nofloNode.id, port, metadata
+
   subscribeDataflowEdge: (edge, graph) ->
     unless edge.nofloEdge
       try
-        edge.nofloEdge = graph.nofloGraph.addEdge edge.source.parentNode.id, edge.source.id, edge.target.parentNode.id, edge.target.id,
+        edge.nofloEdge = graph.nofloGraph.addEdge edge.source.parentNode.nofloNode.id, edge.source.id, edge.target.parentNode.nofloNode.id, edge.target.id,
           route: edge.get 'route'
       catch error
         # Not added, probably multiple w/o array port https://github.com/noflo/noflo/issues/90
