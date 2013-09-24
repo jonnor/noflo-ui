@@ -3,7 +3,7 @@
 class PreviewIframe
   initialize: (dataflow) ->
     @$iframe = $('<iframe id="preview-iframe"></iframe>')
-    $('body').append(@$iframe)
+    $(dataflow.el).append(@$iframe)
     
     dataflow.addPlugin
       id: 'preview'
@@ -15,7 +15,7 @@ class PreviewIframe
   getElement: ->
     @$iframe[0]
 
-  setContents: (preview, callback) ->
+  preparePreview: (preview, callback) ->
     preview = @normalizePreview preview
     @$iframe.attr('src', preview.src)
     @$iframe.css
@@ -23,6 +23,11 @@ class PreviewIframe
       height: preview.height
     loaded = _.once callback
     @$iframe.load loaded
+
+  setContents: (preview) ->
+    return unless preview.content
+    body = @$iframe[0].contentDocument.querySelector 'body'
+    body.innerHTML = preview.content
 
   normalizePreview: (preview) ->
     unless preview

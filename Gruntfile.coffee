@@ -67,6 +67,10 @@ module.exports = ->
           expand: true
           dest: '/'
         ,
+          src: ['css/*']
+          expand: true
+          dest: '/'
+        ,
           src: ['preview/browser/noflo-noflo-runtime-iframe/runtime/network.js']
           expand: true
           dest: '/'
@@ -98,7 +102,15 @@ module.exports = ->
 
     # Automated recompilation and testing when developing
     watch:
-      files: ['spec/*.coffee', 'src/*.coffee', 'src/**/*.coffee']
+      files: [
+        'spec/*.coffee'
+        'src/*.coffee'
+        'src/**/*.coffee'
+        'components/*.coffee'
+        'graphs/*.json'
+        'src/**/*.coffee'
+        'component.json'
+      ]
       tasks: ['test']
 
     # BDD tests on browser
