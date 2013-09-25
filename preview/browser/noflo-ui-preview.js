@@ -4719,6 +4719,358 @@ exports.getComponent = function() {
 };
 
 });
+require.register("noflo-noflo-runtime-base/src/Base.js", function(exports, require, module){
+var BaseTransport, protocols;
+
+protocols = {
+  Graph: require('./protocol/Graph'),
+  Network: require('./protocol/Network'),
+  Component: require('./protocol/Component')
+};
+
+BaseTransport = (function() {
+  function BaseTransport() {
+    this.graph = new protocols.Graph(this);
+    this.network = new protocols.Network(this);
+    this.component = new protocols.Component(this);
+  }
+
+  BaseTransport.prototype.send = function(protocol, topic, payload, context) {};
+
+  BaseTransport.prototype.receive = function(protocol, topic, payload, context) {
+    switch (protocol) {
+      case 'graph':
+        return this.graph.receive(topic, payload, context);
+      case 'network':
+        return this.network.receive(topic, payload, context);
+      case 'component':
+        return this.component.receive(topic, payload, context);
+    }
+  };
+
+  return BaseTransport;
+
+})();
+
+module.exports = BaseTransport;
+
+});
+require.register("noflo-noflo-runtime-base/src/protocol/Graph.js", function(exports, require, module){
+var GraphProtocol, noflo;
+
+noflo = require('noflo');
+
+GraphProtocol = (function() {
+  function GraphProtocol(transport) {
+    this.transport = transport;
+    this.graph = null;
+  }
+
+  GraphProtocol.prototype.send = function(topic, payload, context) {
+    return this.transport.send('graph', topic, payload, context);
+  };
+
+  GraphProtocol.prototype.receive = function(topic, payload, context) {
+    switch (topic) {
+      case 'clear':
+        return this.graph = this.initGraph(payload, context);
+      case 'addnode':
+        return this.addNode(this.graph, payload, context);
+      case 'removenode':
+        return this.removeNode(this.graph, payload, context);
+      case 'renamenode':
+        return this.renameNode(this.graph, payload, context);
+      case 'addedge':
+        return this.addEdge(this.graph, payload, context);
+      case 'removeedge':
+        return this.removeEdge(this.graph, payload, context);
+      case 'addinitial':
+        return this.addInitial(this.graph, payload, context);
+      case 'removeinitial':
+        return this.removeInitial(this.graph, payload, context);
+    }
+  };
+
+  GraphProtocol.prototype.initGraph = function(payload, context) {
+    var graph;
+    if (!payload.baseDir) {
+      this.send('error', new Error('No graph baseDir provided'), context);
+      return;
+    }
+    if (!payload.name) {
+      payload.name = 'NoFlo runtime';
+    }
+    graph = new noflo.Graph(payload.name);
+    graph.baseDir = payload.baseDir;
+    this.subscribeGraph(graph, context);
+    return graph;
+  };
+
+  GraphProtocol.prototype.subscribeGraph = function(graph, context) {
+    var _this = this;
+    graph.on('addNode', function(node) {
+      return _this.send('addnode', node, context);
+    });
+    graph.on('removeNode', function(node) {
+      return _this.send('removenode', node, context);
+    });
+    graph.on('renameNode', function(oldId, newId) {
+      return _this.send('renamenode', {
+        from: oldId,
+        to: newId
+      }, context);
+    });
+    graph.on('addEdge', function(edge) {
+      return _this.send('addedge', edge, context);
+    });
+    graph.on('removeEdge', function(edge) {
+      return _this.send('removeedge', edge, context);
+    });
+    graph.on('addInitial', function(iip) {
+      return _this.send('addinitial', iip, context);
+    });
+    return graph.on('removeInitial', function(iip) {
+      return _this.send('removeinitial', iip, context);
+    });
+  };
+
+  GraphProtocol.prototype.addNode = function(graph, node, context) {
+    if (!(node.id || node.component)) {
+      this.send('error', new Error('No ID or component supplied'), context);
+    }
+    return graph.addNode(node.id, node.component, node.metadata);
+  };
+
+  GraphProtocol.prototype.removeNode = function(graph, payload) {
+    if (!payload.id) {
+      this.send('error', new Error('No ID supplied'), context);
+    }
+    return graph.removeNode(payload.id);
+  };
+
+  GraphProtocol.prototype.renameNode = function(graph, payload, context) {
+    if (!(payload.from || payload.to)) {
+      this.send('error', new Error('No from or to supplied'), context);
+    }
+    return graph.renameNode(payload.from, payload.to);
+  };
+
+  GraphProtocol.prototype.addEdge = function(graph, edge, context) {
+    if (!(edge.from || edge.to)) {
+      this.send('error', new Error('No from or to supplied'), context);
+    }
+    return graph.addEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port, edge.metadata);
+  };
+
+  GraphProtocol.prototype.removeEdge = function(graph, edge, context) {
+    if (!(edge.from || edge.to)) {
+      this.send('error', new Error('No from or to supplied'), context);
+    }
+    return graph.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
+  };
+
+  GraphProtocol.prototype.addInitial = function(graph, payload, context) {
+    if (!(payload.from || payload.to)) {
+      this.send('error', new Error('No from or to supplied'), context);
+    }
+    return graph.addInitial(payload.from.data, payload.to.node, payload.to.port, payload.metadata);
+  };
+
+  GraphProtocol.prototype.removeInitial = function(graph, payload, context) {
+    if (!payload.to) {
+      this.send('error', new Error('No to supplied'), context);
+    }
+    return graph.removeInitial(payload.to.node, payload.to.port);
+  };
+
+  return GraphProtocol;
+
+})();
+
+module.exports = GraphProtocol;
+
+});
+require.register("noflo-noflo-runtime-base/src/protocol/Network.js", function(exports, require, module){
+var NetworkProtocol, noflo, prepareSocketEvent;
+
+noflo = require('noflo');
+
+prepareSocketEvent = function(event) {
+  var payload;
+  payload = {
+    id: event.id
+  };
+  if (event.socket.from) {
+    payload.from = {
+      node: event.socket.from.process.id,
+      port: event.socket.from.port
+    };
+  }
+  if (event.socket.to) {
+    payload.to = {
+      node: event.socket.to.process.id,
+      port: event.socket.to.port
+    };
+  }
+  if (event.group) {
+    payload.group = event.group;
+  }
+  if (event.data) {
+    if (event.data.toJSON) {
+      payload.data = event.data.toJSON();
+    }
+    if (event.data.toString) {
+      payload.data = event.data.toString();
+    } else {
+      payload.data = event.data;
+    }
+  }
+  if (event.subgraph) {
+    payload.subgraph = event.subgraph;
+  }
+  return payload;
+};
+
+NetworkProtocol = (function() {
+  function NetworkProtocol(transport) {
+    this.transport = transport;
+  }
+
+  NetworkProtocol.prototype.send = function(topic, payload, context) {
+    return this.transport.send('network', topic, payload, context);
+  };
+
+  NetworkProtocol.prototype.receive = function(topic, payload, context) {
+    switch (topic) {
+      case 'start':
+        return this.initNetwork(this.transport.graph.graph, context);
+    }
+  };
+
+  NetworkProtocol.prototype.initNetwork = function(graph, context) {
+    var _this = this;
+    if (!graph) {
+      this.send('error', new Error('No graph defined'), context);
+      return;
+    }
+    return noflo.createNetwork(graph, function(network) {
+      _this.subscribeNetwork(network, context);
+      return network.connect(function() {
+        network.sendInitials();
+        return graph.on('addInitial', function() {
+          return network.sendInitials();
+        });
+      });
+    }, true);
+  };
+
+  NetworkProtocol.prototype.subscribeNetwork = function(network, context) {
+    var _this = this;
+    network.on('start', function(event) {
+      return _this.send('start', event.start, context);
+    });
+    network.on('connect', function(event) {
+      return _this.send('connect', prepareSocketEvent(event), context);
+    });
+    network.on('begingroup', function(event) {
+      return _this.send('begingroup', prepareSocketEvent(event), context);
+    });
+    network.on('data', function(event) {
+      return _this.send('data', prepareSocketEvent(event), context);
+    });
+    network.on('endgroup', function(event) {
+      return _this.send('endgroup', prepareSocketEvent(event), context);
+    });
+    network.on('disconnect', function(event) {
+      return _this.send('disconnect', prepareSocketEvent(event), context);
+    });
+    return network.on('stop', function(event) {
+      return _this.send('stop', event.uptime, context);
+    });
+  };
+
+  return NetworkProtocol;
+
+})();
+
+module.exports = NetworkProtocol;
+
+});
+require.register("noflo-noflo-runtime-base/src/protocol/Component.js", function(exports, require, module){
+var ComponentProtocol, noflo;
+
+noflo = require('noflo');
+
+ComponentProtocol = (function() {
+  function ComponentProtocol(transport) {
+    this.transport = transport;
+  }
+
+  ComponentProtocol.prototype.send = function(topic, payload, context) {
+    return this.transport.send('component', topic, payload, context);
+  };
+
+  ComponentProtocol.prototype.receive = function(topic, payload, context) {
+    switch (topic) {
+      case 'list':
+        return this.listComponents(payload, context);
+    }
+  };
+
+  ComponentProtocol.prototype.listComponents = function(baseDir, context) {
+    var loader,
+      _this = this;
+    loader = new noflo.ComponentLoader(baseDir);
+    return loader.listComponents(function(components) {
+      return Object.keys(components).forEach(function(component) {
+        return loader.load(component, function(instance) {
+          if (!instance.isReady()) {
+            instance.once('ready', function() {
+              return _this.sendComponent(component, instance, context);
+            });
+            return;
+          }
+          return _this.sendComponent(component, instance, context);
+        });
+      });
+    });
+  };
+
+  ComponentProtocol.prototype.sendComponent = function(component, instance, context) {
+    var inPorts, outPorts, port, portName, _ref, _ref1;
+    inPorts = [];
+    outPorts = [];
+    _ref = instance.inPorts;
+    for (portName in _ref) {
+      port = _ref[portName];
+      inPorts.push({
+        id: portName,
+        type: port.type
+      });
+    }
+    _ref1 = instance.outPorts;
+    for (portName in _ref1) {
+      port = _ref1[portName];
+      outPorts.push({
+        id: portName,
+        type: port.type
+      });
+    }
+    return this.send('component', {
+      name: component,
+      description: instance.description,
+      inPorts: inPorts,
+      outPorts: outPorts
+    }, context);
+  };
+
+  return ComponentProtocol;
+
+})();
+
+module.exports = ComponentProtocol;
+
+});
 require.register("noflo-noflo-runtime-iframe/index.js", function(exports, require, module){
 /*
  * This file can be used for general library features of noflo-runtime-iframe.
@@ -4729,7 +5081,7 @@ require.register("noflo-noflo-runtime-iframe/index.js", function(exports, requir
 
 });
 require.register("noflo-noflo-runtime-iframe/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-runtime-iframe","description":"NoFlo runtime for execution inside an iframe","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-runtime-iframe","version":"0.1.0","keywords":[],"dependencies":{"noflo/noflo":"*","noflo/noflo-core":"*"},"scripts":["index.js"],"json":["component.json"],"files":["runtime/component.js","html/component.html","runtime/network.js","html/network.html"]}');
+module.exports = JSON.parse('{"name":"noflo-runtime-iframe","description":"NoFlo runtime for execution inside an iframe","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-runtime-iframe","version":"0.1.0","keywords":[],"dependencies":{"noflo/noflo":"*","noflo/noflo-runtime-base":"*","noflo/noflo-core":"*"},"scripts":["index.js"],"json":["component.json"],"files":["runtime/component.js","html/component.html","runtime/network.js","html/network.html"]}');
 });
 require.register("noflo-noflo-ajax/index.js", function(exports, require, module){
 /*
@@ -4741,7 +5093,7 @@ require.register("noflo-noflo-ajax/index.js", function(exports, require, module)
 
 });
 require.register("noflo-noflo-ajax/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-ajax","description":"AJAX components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-ajax","version":"0.1.0","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/Get.coffee","index.js"],"json":["component.json"],"noflo":{"components":{"Get":"components/Get.coffee"}}}');
+module.exports = JSON.parse('{"name":"noflo-ajax","description":"AJAX components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-ajax","version":"0.1.0","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/Get.coffee","components/GetJsonP.coffee","index.js"],"json":["component.json"],"noflo":{"components":{"Get":"components/Get.coffee","GetJsonP":"components/GetJsonP.coffee"}}}');
 });
 require.register("noflo-noflo-ajax/components/Get.js", function(exports, require, module){
 var Get, noflo,
@@ -4791,6 +5143,58 @@ Get = (function(_super) {
 
 exports.getComponent = function() {
   return new Get;
+};
+
+});
+require.register("noflo-noflo-ajax/components/GetJsonP.js", function(exports, require, module){
+var GetJsonP, noflo,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+noflo = require('noflo');
+
+GetJsonP = (function(_super) {
+  __extends(GetJsonP, _super);
+
+  function GetJsonP() {
+    this.inPorts = {
+      url: new noflo.Port('string')
+    };
+    this.outPorts = {
+      out: new noflo.Port('string')
+    };
+    GetJsonP.__super__.constructor.call(this, 'url');
+  }
+
+  GetJsonP.prototype.doAsync = function(url, callback) {
+    var body, id, s,
+      _this = this;
+    id = 'noflo' + (Math.random() * 100).toString().replace(/\./g, '');
+    body = document.querySelector('body');
+    s = document.createElement('script');
+    window[id] = function(data) {
+      _this.outPorts.out.beginGroup(url);
+      _this.outPorts.out.send(data);
+      _this.outPorts.out.endGroup();
+      _this.outPorts.out.disconnect();
+      delete window[id];
+      body.removeChild(s);
+      return callback();
+    };
+    s.type = 'application/javascript';
+    if (url.indexOf('?') === -1) {
+      url = "" + url + "?callback=?";
+    }
+    s.src = url.replace('callback=?', "callback=" + id);
+    return body.appendChild(s);
+  };
+
+  return GetJsonP;
+
+})(noflo.AsyncComponent);
+
+exports.getComponent = function() {
+  return new GetJsonP;
 };
 
 });
@@ -5439,9 +5843,9 @@ MakeFunction = (function(_super) {
   __extends(MakeFunction, _super);
 
   MakeFunction.prototype.description = 'Evaluates a function each time data hits the "in" port\
-  and sends the return value to "out". Within the function "data" will\
+  and sends the return value to "out". Within the function "x" will\
   be the variable from the in port. For example, to make a ^2 function\
-  input "return data*data;" to the function port.';
+  input "return x*x;" to the function port.';
 
   function MakeFunction() {
     var _this = this;
@@ -5452,21 +5856,31 @@ MakeFunction = (function(_super) {
     };
     this.outPorts = {
       out: new noflo.Port('all'),
+      "function": new noflo.Port('function'),
       error: new noflo.Port('object')
     };
     this.inPorts["function"].on('data', function(data) {
       var error;
-      try {
-        _this.f = Function("data", data);
-      } catch (_error) {
-        error = _error;
-        _this.error('Error creating function: ' + data);
+      if (typeof data === "function") {
+        _this.f = data;
+      } else {
+        try {
+          _this.f = Function("x", data);
+        } catch (_error) {
+          error = _error;
+          _this.error('Error creating function: ' + data);
+        }
       }
-      try {
-        return _this.f(true);
-      } catch (_error) {
-        error = _error;
-        return _this.error('Error evaluating function: ' + data);
+      if (_this.f) {
+        try {
+          _this.f(true);
+          if (_this.outPorts["function"].isAttached()) {
+            return _this.outPorts["function"].send(_this.f);
+          }
+        } catch (_error) {
+          error = _error;
+          return _this.error('Error evaluating function: ' + data);
+        }
       }
     });
     this.inPorts["in"].on('data', function(data) {
@@ -6201,7 +6615,7 @@ require.register("noflo-noflo-interaction/index.js", function(exports, require, 
 
 });
 require.register("noflo-noflo-interaction/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-interaction","description":"User interaction components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-interaction","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/ListenDrag.coffee","components/ListenHash.coffee","components/ListenKeyboard.coffee","components/ListenMouse.coffee","components/ListenScroll.coffee","components/ListenTouch.coffee","index.js"],"json":["component.json"],"noflo":{"components":{"ListenDrag":"components/ListenDrag.coffee","ListenHash":"components/ListenHash.coffee","ListenKeyboard":"components/ListenKeyboard.coffee","ListenMouse":"components/ListenMouse.coffee","ListenScroll":"components/ListenScroll.coffee","ListenTouch":"components/ListenTouch.coffee"}}}');
+module.exports = JSON.parse('{"name":"noflo-interaction","description":"User interaction components for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-interaction","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*"},"scripts":["components/ListenDrag.coffee","components/ListenHash.coffee","components/ListenKeyboard.coffee","components/ListenMouse.coffee","components/ListenScroll.coffee","components/ListenTouch.coffee","components/SetHash.coffee","index.js"],"json":["component.json"],"noflo":{"components":{"ListenDrag":"components/ListenDrag.coffee","ListenHash":"components/ListenHash.coffee","ListenKeyboard":"components/ListenKeyboard.coffee","ListenMouse":"components/ListenMouse.coffee","ListenScroll":"components/ListenScroll.coffee","ListenTouch":"components/ListenTouch.coffee","SetHash":"components/SetHash.coffee"}}}');
 });
 require.register("noflo-noflo-interaction/components/ListenDrag.js", function(exports, require, module){
 var ListenDrag, noflo,
@@ -6296,6 +6710,7 @@ ListenHash = (function(_super) {
       stop: new noflo.Port('bang')
     };
     this.outPorts = {
+      initial: new noflo.Port('string'),
       change: new noflo.Port('string')
     };
     this.inPorts.start.on('data', function() {
@@ -6307,7 +6722,13 @@ ListenHash = (function(_super) {
   }
 
   ListenHash.prototype.subscribe = function() {
-    return window.addEventListener('hashchange', this.hashChange, false);
+    var initialHash;
+    window.addEventListener('hashchange', this.hashChange, false);
+    if (this.outPorts.initial.isAttached()) {
+      initialHash = window.location.hash.substr(1);
+      this.outPorts.initial.send(initialHash);
+      return this.outPorts.initial.disconnect();
+    }
   };
 
   ListenHash.prototype.unsubscribe = function() {
@@ -6317,8 +6738,11 @@ ListenHash = (function(_super) {
 
   ListenHash.prototype.hashChange = function(event) {
     var newHash, oldHash;
-    oldHash = event.oldUrl.split('#')[1];
-    newHash = event.newUrl.split('#')[1];
+    oldHash = event.oldURL.split('#')[1];
+    newHash = event.newURL.split('#')[1];
+    if (!newHash) {
+      newHash = '';
+    }
     if (oldHash) {
       this.outPorts.change.beginGroup(oldHash);
     }
@@ -6668,6 +7092,46 @@ ListenTouch = (function(_super) {
 
 exports.getComponent = function() {
   return new ListenTouch;
+};
+
+});
+require.register("noflo-noflo-interaction/components/SetHash.js", function(exports, require, module){
+var SetHash, noflo,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+noflo = require('noflo');
+
+SetHash = (function(_super) {
+  __extends(SetHash, _super);
+
+  function SetHash() {
+    var _this = this;
+    this.inPorts = {
+      hash: new noflo.ArrayPort('string')
+    };
+    this.outPorts = {
+      out: new noflo.Port('string')
+    };
+    this.inPorts.hash.on('data', function(data) {
+      window.location.hash = "#" + data;
+      if (_this.outPorts.out.isAttached()) {
+        return _this.outPorts.out.send(data);
+      }
+    });
+    this.inPorts.hash.on('disconnect', function() {
+      if (_this.outPorts.out.isAttached()) {
+        return _this.outPorts.out.disconnect();
+      }
+    });
+  }
+
+  return SetHash;
+
+})(noflo.Component);
+
+exports.getComponent = function() {
+  return new SetHash;
 };
 
 });
@@ -9072,7 +9536,75 @@ require.register("noflo-noflo-strings/index.js", function(exports, require, modu
 
 });
 require.register("noflo-noflo-strings/component.json", function(exports, require, module){
-module.exports = JSON.parse('{"name":"noflo-strings","description":"String Utilities for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-strings","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*","component/underscore":"*"},"scripts":["components/Filter.coffee","components/SendString.coffee","components/StringTemplate.coffee","components/Replace.coffee","components/Jsonify.coffee","components/ParseJson.coffee","index.js"],"json":["component.json"],"noflo":{"components":{"Filter":"components/Filter.coffee","SendString":"components/SendString.coffee","StringTemplate":"components/StringTemplate.coffee","Replace":"components/Replace.coffee","Jsonify":"components/Jsonify.coffee","ParseJson":"components/ParseJson.coffee"}}}');
+module.exports = JSON.parse('{"name":"noflo-strings","description":"String Utilities for NoFlo","author":"Henri Bergius <henri.bergius@iki.fi>","repo":"noflo/noflo-strings","version":"0.0.1","keywords":[],"dependencies":{"noflo/noflo":"*","component/underscore":"*"},"scripts":["components/CompileString.coffee","components/Filter.coffee","components/SendString.coffee","components/SplitStr.coffee","components/StringTemplate.coffee","components/Replace.coffee","components/Jsonify.coffee","components/ParseJson.coffee","index.js"],"json":["component.json"],"noflo":{"components":{"CompileString":"components/CompileString.coffee","Filter":"components/Filter.coffee","SendString":"components/SendString.coffee","SplitStr":"components/SplitStr.coffee","StringTemplate":"components/StringTemplate.coffee","Replace":"components/Replace.coffee","Jsonify":"components/Jsonify.coffee","ParseJson":"components/ParseJson.coffee"}}}');
+});
+require.register("noflo-noflo-strings/components/CompileString.js", function(exports, require, module){
+var CompileString, noflo,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+noflo = require('noflo');
+
+CompileString = (function(_super) {
+  __extends(CompileString, _super);
+
+  function CompileString() {
+    var _this = this;
+    this.delimiter = "\n";
+    this.data = [];
+    this.onGroupEnd = true;
+    this.inPorts = {
+      delimiter: new noflo.Port,
+      "in": new noflo.ArrayPort,
+      ongroup: new noflo.Port
+    };
+    this.outPorts = {
+      out: new noflo.Port
+    };
+    this.inPorts.delimiter.on('data', function(data) {
+      return _this.delimiter = data;
+    });
+    this.inPorts["in"].on('begingroup', function(group) {
+      return _this.outPorts.out.beginGroup(group);
+    });
+    this.inPorts["in"].on('data', function(data) {
+      return _this.data.push(data);
+    });
+    this.inPorts["in"].on('endgroup', function() {
+      if (_this.data.length && _this.onGroupEnd) {
+        _this.outPorts.out.send(_this.data.join(_this.delimiter));
+      }
+      _this.outPorts.out.endGroup();
+      return _this.data = [];
+    });
+    this.inPorts["in"].on('disconnect', function() {
+      if (_this.data.length) {
+        _this.outPorts.out.send(_this.data.join(_this.delimiter));
+      }
+      _this.data = [];
+      return _this.outPorts.out.disconnect();
+    });
+    this.inPorts.ongroup.on("data", function(data) {
+      if (typeof data === 'string') {
+        if (data.toLowerCase() === 'false') {
+          _this.onGroupEnd = false;
+          return;
+        }
+        _this.onGroupEnd = true;
+        return;
+      }
+      return _this.onGroupEnd = data;
+    });
+  }
+
+  return CompileString;
+
+})(noflo.Component);
+
+exports.getComponent = function() {
+  return new CompileString;
+};
+
 });
 require.register("noflo-noflo-strings/components/Filter.js", function(exports, require, module){
 var Filter, noflo,
@@ -9172,6 +9704,80 @@ SendString = (function(_super) {
 
 exports.getComponent = function() {
   return new SendString;
+};
+
+});
+require.register("noflo-noflo-strings/components/SplitStr.js", function(exports, require, module){
+var SplitStr, noflo,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+noflo = require('noflo');
+
+SplitStr = (function(_super) {
+  __extends(SplitStr, _super);
+
+  SplitStr.prototype.description = ' The SplitStr component receives a string in the in port,\
+    splits it by string specified in the delimiter port, and send each part as\
+    a separate packet to the out port';
+
+  function SplitStr() {
+    var _this = this;
+    this.delimiterString = "\n";
+    this.strings = [];
+    this.groups = [];
+    this.inPorts = {
+      "in": new noflo.Port(),
+      delimiter: new noflo.Port()
+    };
+    this.outPorts = {
+      out: new noflo.Port()
+    };
+    this.inPorts.delimiter.on('data', function(data) {
+      var first, last;
+      first = data.substr(0, 1);
+      last = data.substr(data.length - 1, 1);
+      if (first === '/' && last === '/' && data.length > 1) {
+        data = new RegExp(data.substr(1, data.length - 2));
+      }
+      return _this.delimiterString = data;
+    });
+    this.inPorts["in"].on('begingroup', function(group) {
+      return _this.groups.push(group);
+    });
+    this.inPorts["in"].on('data', function(data) {
+      return _this.strings.push(data);
+    });
+    this.inPorts["in"].on('disconnect', function(data) {
+      var group, _i, _j, _len, _len1, _ref, _ref1;
+      if (_this.strings.length === 0) {
+        return _this.outPorts.out.disconnect();
+      }
+      _ref = _this.groups;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        group = _ref[_i];
+        _this.outPorts.out.beginGroup(group);
+      }
+      _this.strings.join(_this.delimiterString).split(_this.delimiterString).forEach(function(line) {
+        return _this.outPorts.out.send(line);
+      });
+      _ref1 = _this.groups;
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        group = _ref1[_j];
+        _this.outPorts.out.endGroup();
+      }
+      _this.outPorts.out.disconnect();
+      _this.strings = [];
+      return _this.groups = [];
+    });
+  }
+
+  return SplitStr;
+
+})(noflo.Component);
+
+exports.getComponent = function() {
+  return new SplitStr();
 };
 
 });
@@ -9570,6 +10176,34 @@ require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
 require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+require.alias("noflo-noflo-runtime-base/src/Base.js", "noflo-noflo-runtime-iframe/deps/noflo-runtime-base/src/Base.js");
+require.alias("noflo-noflo-runtime-base/src/protocol/Graph.js", "noflo-noflo-runtime-iframe/deps/noflo-runtime-base/src/protocol/Graph.js");
+require.alias("noflo-noflo-runtime-base/src/protocol/Network.js", "noflo-noflo-runtime-iframe/deps/noflo-runtime-base/src/protocol/Network.js");
+require.alias("noflo-noflo-runtime-base/src/protocol/Component.js", "noflo-noflo-runtime-iframe/deps/noflo-runtime-base/src/protocol/Component.js");
+require.alias("noflo-noflo-runtime-base/src/Base.js", "noflo-noflo-runtime-iframe/deps/noflo-runtime-base/index.js");
+require.alias("noflo-noflo/component.json", "noflo-noflo-runtime-base/deps/noflo/component.json");
+require.alias("noflo-noflo/src/lib/Graph.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/Graph.js");
+require.alias("noflo-noflo/src/lib/InternalSocket.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/InternalSocket.js");
+require.alias("noflo-noflo/src/lib/Port.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/Port.js");
+require.alias("noflo-noflo/src/lib/ArrayPort.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/ArrayPort.js");
+require.alias("noflo-noflo/src/lib/Component.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/Component.js");
+require.alias("noflo-noflo/src/lib/AsyncComponent.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/AsyncComponent.js");
+require.alias("noflo-noflo/src/lib/LoggingComponent.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/LoggingComponent.js");
+require.alias("noflo-noflo/src/lib/ComponentLoader.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/ComponentLoader.js");
+require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/NoFlo.js");
+require.alias("noflo-noflo/src/lib/Network.js", "noflo-noflo-runtime-base/deps/noflo/src/lib/Network.js");
+require.alias("noflo-noflo/src/components/Graph.js", "noflo-noflo-runtime-base/deps/noflo/src/components/Graph.js");
+require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo-runtime-base/deps/noflo/index.js");
+require.alias("component-emitter/index.js", "noflo-noflo/deps/emitter/index.js");
+require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
+
+require.alias("component-underscore/index.js", "noflo-noflo/deps/underscore/index.js");
+
+require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/lib/fbp.js");
+require.alias("noflo-fbp/lib/fbp.js", "noflo-noflo/deps/fbp/index.js");
+require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
+require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
+require.alias("noflo-noflo-runtime-base/src/Base.js", "noflo-noflo-runtime-base/index.js");
 require.alias("noflo-noflo-core/index.js", "noflo-noflo-runtime-iframe/deps/noflo-core/index.js");
 require.alias("noflo-noflo-core/component.json", "noflo-noflo-runtime-iframe/deps/noflo-core/component.json");
 require.alias("noflo-noflo-core/components/Callback.js", "noflo-noflo-runtime-iframe/deps/noflo-core/components/Callback.js");
@@ -9611,6 +10245,7 @@ require.alias("component-underscore/index.js", "noflo-noflo-core/deps/underscore
 require.alias("noflo-noflo-ajax/index.js", "noflo-ui-preview/deps/noflo-ajax/index.js");
 require.alias("noflo-noflo-ajax/component.json", "noflo-ui-preview/deps/noflo-ajax/component.json");
 require.alias("noflo-noflo-ajax/components/Get.js", "noflo-ui-preview/deps/noflo-ajax/components/Get.js");
+require.alias("noflo-noflo-ajax/components/GetJsonP.js", "noflo-ui-preview/deps/noflo-ajax/components/GetJsonP.js");
 require.alias("noflo-noflo-ajax/index.js", "noflo-ajax/index.js");
 require.alias("noflo-noflo/component.json", "noflo-noflo-ajax/deps/noflo/component.json");
 require.alias("noflo-noflo/src/lib/Graph.js", "noflo-noflo-ajax/deps/noflo/src/lib/Graph.js");
@@ -9769,6 +10404,7 @@ require.alias("noflo-noflo-interaction/components/ListenKeyboard.js", "noflo-ui-
 require.alias("noflo-noflo-interaction/components/ListenMouse.js", "noflo-ui-preview/deps/noflo-interaction/components/ListenMouse.js");
 require.alias("noflo-noflo-interaction/components/ListenScroll.js", "noflo-ui-preview/deps/noflo-interaction/components/ListenScroll.js");
 require.alias("noflo-noflo-interaction/components/ListenTouch.js", "noflo-ui-preview/deps/noflo-interaction/components/ListenTouch.js");
+require.alias("noflo-noflo-interaction/components/SetHash.js", "noflo-ui-preview/deps/noflo-interaction/components/SetHash.js");
 require.alias("noflo-noflo-interaction/index.js", "noflo-interaction/index.js");
 require.alias("noflo-noflo/component.json", "noflo-noflo-interaction/deps/noflo/component.json");
 require.alias("noflo-noflo/src/lib/Graph.js", "noflo-noflo-interaction/deps/noflo/src/lib/Graph.js");
@@ -9931,8 +10567,10 @@ require.alias("noflo-fbp/lib/fbp.js", "noflo-fbp/index.js");
 require.alias("noflo-noflo/src/lib/NoFlo.js", "noflo-noflo/index.js");
 require.alias("noflo-noflo-strings/index.js", "noflo-ui-preview/deps/noflo-strings/index.js");
 require.alias("noflo-noflo-strings/component.json", "noflo-ui-preview/deps/noflo-strings/component.json");
+require.alias("noflo-noflo-strings/components/CompileString.js", "noflo-ui-preview/deps/noflo-strings/components/CompileString.js");
 require.alias("noflo-noflo-strings/components/Filter.js", "noflo-ui-preview/deps/noflo-strings/components/Filter.js");
 require.alias("noflo-noflo-strings/components/SendString.js", "noflo-ui-preview/deps/noflo-strings/components/SendString.js");
+require.alias("noflo-noflo-strings/components/SplitStr.js", "noflo-ui-preview/deps/noflo-strings/components/SplitStr.js");
 require.alias("noflo-noflo-strings/components/StringTemplate.js", "noflo-ui-preview/deps/noflo-strings/components/StringTemplate.js");
 require.alias("noflo-noflo-strings/components/Replace.js", "noflo-ui-preview/deps/noflo-strings/components/Replace.js");
 require.alias("noflo-noflo-strings/components/Jsonify.js", "noflo-ui-preview/deps/noflo-strings/components/Jsonify.js");

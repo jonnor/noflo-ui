@@ -200,7 +200,7 @@ require.relative = function(parent) {
   return localRequire;
 };
 require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, require, module){
-/*! dataflow.js - v0.0.7 - 2013-09-18 (5:09:47 PM GMT+0200)
+/*! dataflow.js - v0.0.7 - 2013-09-25 (12:56:09 PM GMT+0300)
 * Copyright (c) 2013 Forrest Oliphant; Licensed MIT, GPL */
 (function(Backbone) {
   var ensure = function (obj, key, type) {
@@ -569,6 +569,9 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       this.el.className = "dataflow";
       this.$el = $(this.el);
 
+      // Make available in console
+      this.$el.data("dataflow", this);
+
       // Setup cards
       var Card = Dataflow.prototype.module("card");
       this.shownCards = new Card.Collection();
@@ -845,7 +848,7 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       this.el.className = this.className;
       this.$el = $(this.el);
       this.parent = options.parent;
-      var collection = this.get("collection");
+      var collection = this.collection = this.get("collection");
       collection.each(this.addItem, this);
       collection.on("add", this.addItem, this);
       collection.on("remove", this.removeItem, this);
@@ -2145,8 +2148,8 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
         }
         this.setInputValue(input, type, state[this.model.id]);
       }.bind(this));
-
-      var label = $("<label>")
+      
+      var label = $('<label class="input-type-' + type + '">')
         .append( input )
         .prepend( '<span>' + this.model.get("label") + "</span> " );
       this.$input = label;
@@ -2164,7 +2167,7 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
         input.change(this.inputSelect.bind(this));
         return input;
       }
-
+      
       switch (type) {
         case 'int':
         case 'float':
@@ -2189,7 +2192,7 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
           }
           return input;
         case 'boolean':
-          input = $('<input type="checkbox" class="input input-boolean">');
+          input = $('<input type="checkbox" class="input input-boolean"><div class="input-boolean-checkbox"/>');
           input.change(this.inputBoolean.bind(this));
           return input;
         case 'object':
@@ -3128,16 +3131,22 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
     className: "dataflow-card",
     template: _.template(template),
     events: {
-      "click .dataflow-card-pin": "pin",
+      "click .dataflow-card-pin": "togglePin",
       "click .dataflow-card-close": "hide"
     },
     initialize: function () {
       this.$el.html(this.template());
-      this.$el.append(this.model.get("card").el);
+      this.card = this.model.get("card");
+      this.$el.append(this.card.el);
       this.listenTo(this.model, "change:pinned", this.pinnedChanged);
       this.pinnedChanged();
     },
-    pin: function () {
+    animate: function (timestamp) {
+      if (typeof this.card.animate === "function") {
+        this.card.animate(timestamp);
+      }
+    },
+    togglePin: function () {
       var pinned = !this.model.get("pinned");
       this.model.set("pinned", pinned);
       if (!pinned) {
@@ -3152,7 +3161,6 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       }
     },
     hide: function () {
-      this.model.set("pinned", false);
       this.model.hide();
     },
     remove: function () {
@@ -3160,11 +3168,40 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
     }
   });
 
+  // requestAnimationFrame shim
+  if (!window.requestAnimationFrame) {
+    window.requestAnimationFrame = (function(){
+      return  window.requestAnimationFrame       ||
+              window.webkitRequestAnimationFrame ||
+              window.mozRequestAnimationFrame    ||
+              window.oRequestAnimationFrame      ||
+              window.msRequestAnimationFrame     ||
+              function( callback ){
+                window.setTimeout(callback, 1000 / 20);
+              };
+    })();
+  }
+
   Card.CollectionView = Backbone.CollectionView.extend({
     tagName: "div",
     className: "dataflow-cards",
     itemView: Card.View,
     prepend: true,
+    initialize: function () {
+      // Super
+      Backbone.CollectionView.prototype.initialize.apply(this, arguments);
+      // Set up animation loop
+      var loop = function (timestamp) {
+        window.requestAnimationFrame(loop);
+        // Call all visible
+        this.collection.each(function(card){
+          if (card.view) {
+            card.view.animate(timestamp);
+          }
+        });
+      }.bind(this);
+      loop();
+    },
     bringToTop: function (card) {
       this.$el.prepend( card.view.el );
     }
@@ -3284,11 +3321,11 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
         $choose.append(button);
       }
 
-      reqFrame = window.requestAnimationFrame ? window.requestAnimationFrame : window.webkitRequestAnimationFrame;
-
       this.listenTo(this.model, "change:route", this.render);
       this.listenTo(this.model, "remove", this.remove);
-      this.listenTo(this.model.get('log'), 'add', function () { reqFrame(this.renderLog.bind(this)); });
+      this.listenTo(this.model.get('log'), 'add', function () { 
+        this.logDirty = true; 
+      }.bind(this));
       this.renderLog();
     },
     render: function(){
@@ -3297,6 +3334,14 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       $choose.children(".active").removeClass("active");
       $choose.children(".route"+route).addClass("active");
       return this;
+    },
+    logDirty: false,
+    animate: function (timestamp) {
+      // Called from dataflow.shownCards collection (card-view.js)
+      if (this.logDirty) {
+        this.logDirty = false;
+        this.renderLog();
+      }
     },
     renderLog: function () {
       var frag = document.createDocumentFragment();
@@ -3347,8 +3392,7 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
     //   menu: buttons, 
     //   icon: "edit"
     // });
-
-
+    
     //
     // A
     //
@@ -3362,6 +3406,13 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
     //
     // X
     //
+    
+    Edit.removeSelected = function () {
+      var toRemove = dataflow.currentGraph.nodes.where({selected:true});      
+      _.each(toRemove, function(node){
+        node.remove();
+      });
+    };
 
     function cut(){
       // Copy selected
@@ -3372,13 +3423,20 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
         node.y -= 50;
       });
       // Remove selected
-      var toRemove = dataflow.currentGraph.nodes.where({selected:true});
-      _.each(toRemove, function(node){
-        node.remove();
-      });
+      Edit.removeSelected();
     }
     buttons.children(".cut").click(cut);
     Edit.cut = cut;
+    
+    
+
+    function removeEdge(){
+      var selected = dataflow.currentGraph.edges.where({selected:true});
+      selected.forEach(function(edge){
+        edge.remove();
+      });
+    }
+    Edit.removeEdge = removeEdge;
 
     //
     // C
@@ -3466,6 +3524,9 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
 
 
 
+
+
+
     // Add context actions for actionbar
 
     dataflow.addContext({
@@ -3488,6 +3549,16 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       label: "paste",
       action: paste,
       contexts: ["one", "twoplus"]
+    });
+
+
+
+    dataflow.addContext({
+      id: "edgeRemove",
+      icon: "cut",
+      label: "remove edges",
+      action: removeEdge,
+      contexts: ["edge"]
     });
 
 
@@ -3514,7 +3585,7 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
   Library.initialize = function(dataflow){
 
     var $container = $('<div class="dataflow-plugin-overflow">');
-    var $library = $('<ul class="dataflow-plugin-library" style="list-style:none; padding:0; margin:15px 0;" />');
+    var $library = $('<ul class="dataflow-plugin-library" />');
     $container.append($library);
 
     var addNode = function(node, x, y) {
@@ -3578,10 +3649,14 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       options.exclude = options.exclude ? options.exclude : ["base", "base-resizable"];
 
       $library.empty();
-      _.each(dataflow.nodes, function(node, index){
-        if (options.exclude.indexOf(index) === -1) {
-          addLibraryItem(node, index);
+      var sortedLibrary = _.sortBy(Object.keys(dataflow.nodes), function (name) {
+        return name;
+      });
+      _.each(sortedLibrary, function (name) {
+        if (options.exclude.indexOf(name) !== -1) {
+          return;
         }
+        addLibraryItem(dataflow.nodes[name], name);
       });
     };
     update();
@@ -3590,7 +3665,8 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       id: "library", 
       name: "", 
       menu: $container, 
-      icon: "plus"
+      icon: "plus",
+      pinned: true
     });
 
     Library.update = update;
@@ -3624,7 +3700,8 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       id: "source", 
       name: "", 
       menu: $form, 
-      icon: "cog"
+      icon: "cog",
+      pinned: true
     });
 
     var show = function(source) {
@@ -3688,7 +3765,8 @@ require.register("meemoo-dataflow/build/dataflow.build.js", function(exports, re
       id: "log", 
       name: "", 
       menu: $log, 
-      icon: "th-list"
+      icon: "th-list",
+      pinned: true
     });
 
     // Log message and scroll
@@ -13831,9 +13909,9 @@ MakeFunction = (function(_super) {
   __extends(MakeFunction, _super);
 
   MakeFunction.prototype.description = 'Evaluates a function each time data hits the "in" port\
-  and sends the return value to "out". Within the function "data" will\
+  and sends the return value to "out". Within the function "x" will\
   be the variable from the in port. For example, to make a ^2 function\
-  input "return data*data;" to the function port.';
+  input "return x*x;" to the function port.';
 
   function MakeFunction() {
     var _this = this;
@@ -13844,21 +13922,31 @@ MakeFunction = (function(_super) {
     };
     this.outPorts = {
       out: new noflo.Port('all'),
+      "function": new noflo.Port('function'),
       error: new noflo.Port('object')
     };
     this.inPorts["function"].on('data', function(data) {
       var error;
-      try {
-        _this.f = Function("data", data);
-      } catch (_error) {
-        error = _error;
-        _this.error('Error creating function: ' + data);
+      if (typeof data === "function") {
+        _this.f = data;
+      } else {
+        try {
+          _this.f = Function("x", data);
+        } catch (_error) {
+          error = _error;
+          _this.error('Error creating function: ' + data);
+        }
       }
-      try {
-        return _this.f(true);
-      } catch (_error) {
-        error = _error;
-        return _this.error('Error evaluating function: ' + data);
+      if (_this.f) {
+        try {
+          _this.f(true);
+          if (_this.outPorts["function"].isAttached()) {
+            return _this.outPorts["function"].send(_this.f);
+          }
+        } catch (_error) {
+          error = _error;
+          return _this.error('Error evaluating function: ' + data);
+        }
       }
     });
     this.inPorts["in"].on('data', function(data) {
