@@ -16,6 +16,11 @@ module.exports = ->
 
     # Browser version building
     exec:
+      nuke_main:
+        command: 'rm -rf ./components/*/'
+      nuke_preview:
+        command: 'rm -rf ./components/*/'
+        cwd: 'preview'
       main_install:
         command: './node_modules/.bin/component install'
       main_build:
@@ -103,15 +108,15 @@ module.exports = ->
     # Automated recompilation and testing when developing
     watch:
       files: [
-        'spec/*.coffee'
         'src/*.coffee'
         'src/**/*.coffee'
         'components/*.coffee'
         'graphs/*.json'
-        'src/**/*.coffee'
         'component.json'
+        'spec/*.coffee'
       ]
       tasks: ['test']
+
 
     # BDD tests on browser
     mocha_phantomjs:
@@ -122,7 +127,18 @@ module.exports = ->
 
     # Coding standards
     coffeelint:
-      components: ['components/*.coffee']
+      # noflo:
+      options:
+        max_line_length:
+          level: "ignore"
+      files: [
+        'Gruntfile.coffee'
+        'src/*.coffee'
+        'src/**/*.coffee'
+        'components/*.coffee'
+        'spec/*.coffee'
+      ]
+
 
   # Grunt plugins used for building
   @loadNpmTasks 'grunt-contrib-coffee'
@@ -139,7 +155,8 @@ module.exports = ->
   @loadNpmTasks 'grunt-coffeelint'
 
   # Our local tasks
-  @registerTask 'build', ['exec', 'uglify']
+  @registerTask 'nuke', ['exec:nuke_main', 'exec:nuke_preview']
+  @registerTask 'build', ['exec:main_install', 'exec:main_build', 'exec:preview_install', 'exec:preview_build']
   @registerTask 'test', ['coffeelint', 'build', 'coffee', 'mocha_phantomjs']
   @registerTask 'app', ['build', 'compress', 'phonegap-build']
   @registerTask 'default', ['test']

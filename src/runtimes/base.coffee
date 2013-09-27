@@ -1,138 +1,63 @@
-class BaseRuntime
-  constructor: (@dataflow, @graph) ->
-    @components = {}
-    @types = {}
-    @instances = {}
-    @networkListeners = []
-    @resetListeners = []
-    @connect 'graph'
-    @connect 'network'
-    @connect 'component'
-    @prepareComponents()
+EventEmitter = require 'emitter'
 
-  libraryUpdater: _.debounce ->
-      @dataflow.plugins.library.update
-        exclude: [
-          "base"
-          "base-resizable"
-          "dataflow-subgraph"
-        ]
-    , 100
+class BaseRuntime extends EventEmitter
+  constructor: (@graph) ->
+    @address = null
 
-  getComponentInstance: (name, attributes) ->
-    return null unless @types[name]
-    type = @types[name]
-    instance = new type.Model attributes
-    @instances[name] = [] unless @instances[name]
-    @instances[name].push instance
-    instance
+  getType: -> ''
+  getAddress: -> @address
 
-  loadComponents: (baseDir) ->
-    @sendComponent 'list', baseDir
+  # Connect to the target runtime environment (iframe URL, WebSocket address)
+  connect: (target) ->
 
-  prepareComponents: ->
-    components = {}
-    @graph.nodes.forEach (node) =>
-      components[node.component] =
-        name: node.component
-        description: ''
-        inPorts: []
-        outPorts: []
-      @graph.edges.forEach (edge) ->
-        if edge.from.node is node.id
-          components[node.component].outPorts.push
-            id: edge.from.port
-            type: 'all'
-        if edge.to.node is node.id
-          components[node.component].inPorts.push
-            id: edge.to.port
-            type: 'all'
-      @graph.initializers.forEach (iip) ->
-        if iip.to.node is node.id
-          components[node.component].inPorts.push
-            id: iip.to.port
-            type: 'all'
-    @registerComponent component for name, component of components
+  disconnect: ->
 
-  registerComponent: (definition) ->
-    @components[definition.name] = definition
+  # Start a NoFlo Network
+  start: ->
+    @sendNetwork 'start'
 
-    unless @types[definition.name]
-      # Register as new component to Dataflow
-      BaseType = @dataflow.node 'base'
-      @types[definition.name] = @dataflow.node definition.name
-      @types[definition.name].Model = BaseType.Model.extend
-        defaults: ->
-          defaults = BaseType.Model::defaults.call this
-          defaults.type = definition.name
-          defaults
-        inputs: definition.inPorts
-        outputs: definition.outPorts
+  # Stop a NoFlo network
+  stop: ->
+    @sendNetwork 'stop'
 
-      # Update Dataflow library with this component
-      do @libraryUpdater
+  # Set the Dataflow parent element
+  setParentElement: (parent) ->
 
-    else
-      # Update the definition
-      type = @types[definition.name].Model
-      type::inputs = definition.inPorts
-      type::outputs = definition.outPorts
-      # Update instances we already have
-      if @instances[definition.name]
-        @instances[definition.name].forEach @updateInstancePorts
-
-  updateInstancePorts: (instance) =>
-    for port in @components[instance.type].inPorts
-      instancePort = instance.inputs.get port.id
-      if instancePort
-        instancePort.set port
-      else
-        instance.inputs.add
-          label: port.id
-          parentNode: instance
-          id: port.id
-          type: port.type
-    for port in @components[instance.type].outPorts
-      instancePort = instance.outputs.get port.id
-      if instancePort
-        instancePort.set port
-      else
-        instance.outputs.add
-          label: port.id
-          parentNode: instance
-          id: port.id
-          type: port.type
-
-  listenReset: (callback) ->
-    @resetListeners.push callback
-
-  sendResetEvent: ->
-    for callback in @resetListeners
-      do callback
-
-  listenNetwork: (callback) ->
-    @networkListeners.push callback
-
-  sendNetworkEvent: (command, payload) ->
-    for callback in @networkListeners
-      callback command, payload
+  # Get a DOM element rendered by the runtime for preview purposes
+  getElement: ->
 
   recvComponent: (command, payload) ->
-    switch command
-      when 'component' then @registerComponent payload
+    @emit 'component',
+      command: command
+      payload: payload
 
-  recvGraph: ->
+  recvGraph: (command, payload) ->
+    @emit 'graph',
+      command: command
+      payload: payload
 
   recvNetwork: (command, payload) ->
     switch command
-      when 'start' then return
-      when 'stop' then return
+      when 'started'
+        @emit 'status',
+          state: 'online'
+          label: 'running'
+      when 'stopped'
+        @emit 'status',
+          state: 'online'
+          label: 'stopped'
       else
-        @sendNetworkEvent command, payload
+        @emit 'network',
+          command: command
+          payload: payload
 
-  connect: (protocol) ->
   sendGraph: (command, payload) ->
+    @send 'graph', command, payload
   sendNetwork: (command, payload) ->
+    @send 'network', command, payload
   sendComponent: (command, payload) ->
+    @send 'component', command, payload
+
+  send: (protocol, command, payload) ->
 
 module.exports = BaseRuntime
