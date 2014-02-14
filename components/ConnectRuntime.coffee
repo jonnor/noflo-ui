@@ -21,6 +21,7 @@ class ConnectRuntime extends noflo.Component
         @outPorts.editor.disconnect()
     @inPorts.project.on 'data', (@project) =>
     @inPorts.newgraph.on 'data', (data) =>
+      @hackJournal data
       @sendGraph @runtime, data
     @inPorts.runtime.on 'connect', =>
       @runtime = null
@@ -28,6 +29,10 @@ class ConnectRuntime extends noflo.Component
       @runtime.stop() if @runtime
       @runtime = runtime
       @connect @editor, @runtime
+
+  hackJournal: (graph) ->
+    # XXX: just a nasty way of creating a journal and having it connected to graph
+    graph.journal = noflo.Journal(graph)
 
   sendProject: (runtime, project) ->
     if project.components

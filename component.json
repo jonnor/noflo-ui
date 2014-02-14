@@ -14,6 +14,7 @@
   "dependencies": {
     "component/emitter": "*",
     "noflo/noflo": "*",
+    "noflo/fbp": "*",
     "noflo/noflo-strings": "*",
     "noflo/noflo-ajax": "*",
     "noflo/noflo-localstorage": "*",
