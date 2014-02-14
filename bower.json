@@ -23,6 +23,7 @@
     "the-card": "*",
     "font-awesome": "~4.0.3",
     "codemirror": "~3.20.0",
-    "coffee-script": "~1.6.3"
+    "coffee-script": "~1.6.3",
+    "peerjs": "~0.3.7"
   }
 }
