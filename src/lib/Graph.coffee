@@ -242,6 +242,7 @@ class Graph extends EventEmitter
     for group in @groups
       continue unless group
       continue unless group.name is groupName
+      setGroupMetadata groupName, {}
       @groups.splice @groups.indexOf(group), 1
       @emit 'removeGroup', group
 
@@ -331,6 +332,8 @@ class Graph extends EventEmitter
       index = group.nodes.indexOf(id)
       continue if index is -1
       group.nodes.splice index, 1
+
+    @setNodeMetadata id, {}
 
     if -1 isnt @nodes.indexOf node
       @nodes.splice @nodes.indexOf(node), 1
