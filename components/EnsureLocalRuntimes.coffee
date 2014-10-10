@@ -27,6 +27,27 @@ ensureOneIframeRuntime = (runtimes) ->
   iframeRuntime.seen = Date.now()
   return filtered
 
+ensureOneMicroFloSimulator = (runtimes) ->
+  filtered = []
+  foundRuntime = null
+  for runtime in runtimes
+    if runtime.protocol is 'microflo' and runtime.address is 'simulator://'
+      unless foundRuntime
+        foundRuntime = runtime
+        filtered.push runtime
+    else
+      filtered.push runtime
+  unless foundRuntime
+    foundRuntime =
+      label: 'Local MicroFlo simulator'
+      id: uuid()
+      protocol: 'microflo'
+      address: 'simulator://'
+      type: 'microflo'
+    filtered.push foundRuntime
+  foundRuntime.seen = Date.now()
+  return filtered
+
 ensureMicroFloRuntimePerSerialDevice = (runtimes, callback) ->
   return callback runtimes unless microflo
   return callback runtimes unless microflo.serial.isSupported()
@@ -61,7 +82,8 @@ exports.getComponent = ->
   , (data, groups, out) ->
 
     runtimesWithOneIframe = ensureOneIframeRuntime data
-    ensureMicroFloRuntimePerSerialDevice runtimesWithOneIframe, (runtimes) ->
+    runtimesWithMicroFloSimulator = ensureOneMicroFloSimulator runtimesWithOneIframe
+    ensureMicroFloRuntimePerSerialDevice runtimesWithMicroFloSimulator, (runtimes) ->
       out.send runtimes
 
   c
